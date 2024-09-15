@@ -3,6 +3,8 @@
 ## Overview
 This project is an interactive web application that provides insights into global population data. It scrapes data from Wikipedia, processes it, and presents various visualizations and analyses through an intuitive dashboard.
 
+[Deployed app](https://worldpopulationdashboard.streamlit.app/)
+
 ## Features
 - Real-time data scraping from Wikipedia
 - Interactive visualizations including:
