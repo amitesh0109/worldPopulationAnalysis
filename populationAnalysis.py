@@ -14,30 +14,6 @@ import pycountry
 # Set page config
 st.set_page_config(layout="wide", page_title="World Population Insights", page_icon="🌍")
 
-# Custom CSS for better styling
-st.markdown("""
-<style>
-    .reportview-container {
-        background: #f0f2f6
-    }
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-    h1, h2, h3 {
-        color: #1e3a8a;
-    }
-    .stAlert > div {
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-    }
-    .stButton>button {
-        background-color: #3b82f6;
-        color: white;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 @st.cache_data
 def scrape_wikipedia_data():
     url = "https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population"
@@ -107,6 +83,10 @@ def clean_data(df):
     # Add continent information
     df['Continent'] = df['Country'].apply(get_continent)
     
+    # Remove 'Continent' column if all values are 'Unknown'
+    if df['Continent'].nunique() == 1 and df['Continent'].iloc[0] == 'Unknown':
+        df = df.drop('Continent', axis=1)
+    
     # Exclude 'World' from the dataset
     df = df[df['Country'] != 'World']
     
@@ -127,12 +107,18 @@ def analyze_data(df):
         'least_populous': least_populous
     }
 
+def format_percentage(value):
+    if value < 0.0001:  # For very small percentages
+        return '< 0.0001%'
+    else:
+        return f'{value:.2%}'
+
 def create_population_chart(df):
     top_10_countries = df.nlargest(10, 'Population')
     fig = px.bar(top_10_countries, x='Country', y='Population', 
                  title='Top 10 Countries by Population',
                  labels={'Population': 'Population', 'Country': 'Country'},
-                 color='Continent',
+                 color='Continent' if 'Continent' in df.columns else None,
                  hover_data=['Percentage'])
     fig.update_layout(xaxis_tickangle=-45)
     return fig
@@ -141,23 +127,9 @@ def create_population_distribution(df):
     fig = px.histogram(df, x='Population', nbins=50,
                        title='Distribution of Country Populations',
                        labels={'Population': 'Population'},
-                       color='Continent')
+                       color='Continent' if 'Continent' in df.columns else None)
     fig.update_layout(bargap=0.1)
     return fig
-
-def create_continent_pie_chart(df):
-    continent_data = df.groupby('Continent')['Population'].sum().reset_index()
-    fig = px.pie(continent_data, values='Population', names='Continent', 
-                 title='Population Distribution by Continent')
-    return fig
-
-def train_population_predictor(df):
-    X = df[['Percentage']].values
-    y = df['Population'].values
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-    return model
 
 def main():
     st.title('🌍 World Population Insights')
@@ -192,66 +164,21 @@ def main():
         most_populous = stats['most_populous'].iloc[0]
         st.write(f"**{most_populous['Country']}**")
         st.write(f"Population: {most_populous['Population']:,}")
-        st.write(f"Percentage of World: {most_populous['Percentage']:.2%}")
+        st.write(f"Percentage of World: {format_percentage(most_populous['Percentage'])}")
     
     with col2:
         st.subheader("Least Populous Country")
         least_populous = stats['least_populous'].iloc[0]
         st.write(f"**{least_populous['Country']}**")
         st.write(f"Population: {least_populous['Population']:,}")
-        st.write(f"Percentage of World: {least_populous['Percentage']:.2%}")
+        st.write(f"Percentage of World: {format_percentage(least_populous['Percentage'])}")
     
     st.markdown("---")
     
     st.subheader("Population Visualizations")
     
-    tab1, tab2, tab3 = st.tabs(["Top 10 Countries", "Population Distribution", "Continents"])
-    
-    with tab1:
-        st.plotly_chart(create_population_chart(df), use_container_width=True)
-    
-    with tab2:
-        st.plotly_chart(create_population_distribution(df), use_container_width=True)
-    
-    with tab3:
-        st.plotly_chart(create_continent_pie_chart(df), use_container_width=True)
-    
-    st.markdown("---")
-    
-    st.subheader("Country Comparison")
-    col1, col2 = st.columns(2)
-    with col1:
-        country1 = st.selectbox("Select first country", df['Country'].tolist(), key='country1')
-    with col2:
-        country2 = st.selectbox("Select second country", df['Country'].tolist(), index=1, key='country2')
-    
-    if country1 and country2:
-        data1 = df[df['Country'] == country1].iloc[0]
-        data2 = df[df['Country'] == country2].iloc[0]
-        
-        fig = go.Figure(data=[
-            go.Bar(name=country1, x=['Population'], y=[data1['Population']]),
-            go.Bar(name=country2, x=['Population'], y=[data2['Population']])
-        ])
-        fig.update_layout(title_text=f"Population Comparison: {country1} vs {country2}")
-        st.plotly_chart(fig, use_container_width=True)
-        
-        col1, col2 = st.columns(2)
-        col1.metric(country1, f"{data1['Population']:,}", f"{data1['Percentage']:.2%} of world")
-        col2.metric(country2, f"{data2['Population']:,}", f"{data2['Percentage']:.2%} of world")
-    
-    st.markdown("---")
-    
-    st.subheader("Population Predictor")
-    st.write("Predict a country's population based on its percentage of world population.")
-    
-    model = train_population_predictor(df)
-    
-    user_input = st.number_input("Enter a percentage of world population (e.g., 0.5 for 0.5%)", min_value=0.0, max_value=100.0, value=1.0, step=0.1)
-    
-    if st.button("Predict Population"):
-        predicted_population = model.predict([[user_input / 100]])[0]
-        st.metric("Predicted Population", f"{predicted_population:,.0f}")
+    st.plotly_chart(create_population_chart(df), use_container_width=True)
+    st.plotly_chart(create_population_distribution(df), use_container_width=True)
     
     st.markdown("---")
     
@@ -263,9 +190,13 @@ def main():
         filtered_df = df
     
     # Display only relevant columns and remove index
-    st.dataframe(filtered_df[['Country', 'Population', 'Percentage', 'Continent']].reset_index(drop=True).style.format({
+    columns_to_display = ['Country', 'Population', 'Percentage']
+    if 'Continent' in filtered_df.columns:
+        columns_to_display.append('Continent')
+    
+    st.dataframe(filtered_df[columns_to_display].reset_index(drop=True).style.format({
         'Population': '{:,.0f}',
-        'Percentage': '{:.2%}'
+        'Percentage': format_percentage
     }))
 
 if __name__ == "__main__":
