@@ -73,9 +73,6 @@ This app is designed to be deployed on Streamlit Cloud. To deploy:
 ## Contributing
 Contributions to this project are welcome! Please fork the repository and submit a pull request with your changes.
 
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## Acknowledgments
 - Data source: Wikipedia's "List of countries and dependencies by population"
 - Thanks to the Streamlit team for their excellent framework
